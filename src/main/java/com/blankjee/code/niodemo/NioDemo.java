@@ -25,7 +25,7 @@ public class NioDemo {
     // 统计服务器线程在一个客户端上花费的时间
     public static Map<Socket, Long> time_stat = new HashMap<>(10240);
 
-    private void startServer() throws IOException {
+    void startServer() throws IOException {
         // 通过工厂方法获得一个Selector对象的实例
         selector = SelectorProvider.provider().openSelector();
         ServerSocketChannel ssc = ServerSocketChannel.open();
@@ -40,23 +40,30 @@ public class NioDemo {
         SelectionKey acceptKey = ssc.register(selector, SelectionKey.OP_ACCEPT);
 
         for (;;) {
-            // 这是一个阻塞方法，如果当前没有任何数据准备好，他就会等待
+            // 这是一个阻塞方法，如果当前没有任何数据准备好，他就会等待。一旦有数据可读，他就会返回。他的返回值是已经准备就绪的SelectionKey的数量。
             selector.select();
+            // 获取已经准备好的那些SelectionKey，可能有多个所以是一个集合。
             Set readyKey = selector.selectedKeys();
+            // 准备变量这个集合
             Iterator i = readyKey.iterator();
             long e = 0;
             while (i.hasNext()) {
                 SelectionKey sk = (SelectionKey) i.next();
+                // 获取了之后务必将其移除，否则就会重复处理相同的SelectionKey
                 i.remove();
 
+                // 判断当前SelectionKey的状态并转入相应的操作
                 if (sk.isAcceptable()) {
+                    // Channel在Acceptable状态进行客户端接口方法，与客户端建立连接
                     doAccept(sk);
                 } else if (sk.isValid() && sk.isReadable()) {
+                    // Channel可读状态
                     if (!time_stat.containsKey(((SocketChannel) sk.channel()).socket())) {
                         time_stat.put(((SocketChannel) sk.channel()).socket(), System.currentTimeMillis());
                     }
                     doRead(sk);
                 } else if (sk.isValid() && sk.isWritable()) {
+                    // Channel可写状态
                     doWrite(sk);
                     e = System.currentTimeMillis();
                     long b = time_stat.remove(((SocketChannel) sk.channel()).socket());
